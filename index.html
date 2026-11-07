@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SaveMoney — REST API</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.34.1/swagger-ui.css" integrity="sha384-4c3vsE5f+trhFyHrFrLM1fFGUn531NIaC7dcqEWIJdoRQJ5CkJbSuSCwXLpaS1KF" crossorigin="anonymous">
+  <style>
+    body { margin: 0; background: #fafafa; }
+    header { padding: 20px 24px; font: 16px/1.5 system-ui, sans-serif; background: #fff; border-bottom: 1px solid #ddd; }
+    header p { margin: 0 0 8px; }
+    header a { color: #175a9e; margin-right: 20px; }
+  </style>
+</head>
+<body>
+  <header>
+    <p><strong>SaveMoney: контракт будущего API</strong></p>
+    <p>Чек-поинт 2. Сервер ещё не реализован; выполнение запросов отключено.</p>
+    <a href="openapi.json" download>Скачать OpenAPI JSON</a>
+    <a href="https://github.com/tru3ty/SaveMoney_app/tree/apispec">Репозиторий</a>
+    <a href="https://github.com/tru3ty/SaveMoney_app/pull/1">PR для ревью</a>
+  </header>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5.34.1/swagger-ui-bundle.js" integrity="sha384-XFYN47VzPiDY6qPtxYKg0nqUeW/upo20xf1j2SUE7gT/i35FJB4cuS/71Iegzk8Z" crossorigin="anonymous"></script>
+  <script>
+    window.ui = SwaggerUIBundle({
+      url: './openapi.json',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      filter: true,
+      docExpansion: 'list',
+      defaultModelsExpandDepth: -1,
+      supportedSubmitMethods: [],
+      validatorUrl: null
+    });
+  </script>
+</body>
+</html>
