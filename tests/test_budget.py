@@ -300,3 +300,14 @@ def test_burn_allows_transfer_of_other_overlapping_envelope(budget):
     budget.close_envelope('2026-11:cafe', 'burn')
     budget.close_envelope('2026-11:food', 'carry_over')
     assert budget.envelopes['2026-12:food'].carry_over_amount == 10000
+
+
+def test_early_year_period_ids_are_zero_padded():
+    budget = Budget()
+    budget.add_category(Category('food', 'Еда'))
+    period = budget.ensure_period(date(1, 1, 3))
+    assert period.id == '0001-01'
+    tx = budget.add_transaction(
+        Transaction('early', 'expense', 100, date(1, 1, 3), category_id='food')
+    )
+    assert tx.period_id == '0001-01'

@@ -62,7 +62,7 @@ class Budget:
         _insert(self.goals, goal)
 
     def ensure_period(self, today: date) -> Period:
-        key = today.strftime('%Y-%m')
+        key = f'{today.year:04d}-{today.month:02d}'
         if self.periods:
             latest = max(self.periods.values(), key=lambda period: period.start)
             if today < min(period.start for period in self.periods.values()):
@@ -113,7 +113,7 @@ class Budget:
         return envelope
 
     def add_transaction(self, transaction: Transaction) -> Transaction:
-        period = _get(self.periods, transaction.date.strftime('%Y-%m'))
+        period = _get(self.periods, f'{transaction.date.year:04d}-{transaction.date.month:02d}')
         if period.status == 'closed' or any(
             self.envelopes[id].period_id == period.id for id in self.closures
         ):

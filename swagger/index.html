@@ -15,23 +15,28 @@
 </head>
 <body>
   <header>
-    <p><strong>SaveMoney: контракт будущего API</strong></p>
-    <p>Чек-поинт 2. Сервер ещё не реализован; выполнение запросов отключено.</p>
-    <a href="openapi.json" download>Скачать OpenAPI JSON</a>
-    <a href="https://github.com/tru3ty/SaveMoney_app/tree/apispec">Репозиторий</a>
+    <p><strong>SaveMoney: REST API</strong></p>
+    <p id="mode">Чек-поинт 3. Локальный сервер запускается отдельно; здесь доступен просмотр контракта.</p>
+    <a id="download" href="openapi.json" download>Скачать OpenAPI JSON</a>
+    <a href="https://github.com/tru3ty/SaveMoney_app">Репозиторий</a>
     <a href="https://github.com/tru3ty/SaveMoney_app/pull/1">PR для ревью</a>
   </header>
   <div id="swagger-ui"></div>
   <script src="https://unpkg.com/swagger-ui-dist@5.34.1/swagger-ui-bundle.js" integrity="sha384-XFYN47VzPiDY6qPtxYKg0nqUeW/upo20xf1j2SUE7gT/i35FJB4cuS/71Iegzk8Z" crossorigin="anonymous"></script>
   <script>
+    const live = location.pathname === '/swagger' || location.pathname === '/swagger/';
+    if (live) {
+      document.getElementById('mode').textContent = 'Локальный API. Try it out → Execute отправляет настоящий запрос и может изменить данные.';
+      document.getElementById('download').href = '/openapi.json';
+    }
     window.ui = SwaggerUIBundle({
-      url: './openapi.json',
+      url: live ? '/openapi.json' : './openapi.json',
       dom_id: '#swagger-ui',
       deepLinking: true,
       filter: true,
       docExpansion: 'list',
       defaultModelsExpandDepth: -1,
-      supportedSubmitMethods: [],
+      supportedSubmitMethods: live ? ['get', 'post', 'put', 'patch', 'delete'] : [],
       validatorUrl: null
     });
   </script>

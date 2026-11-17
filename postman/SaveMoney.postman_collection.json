@@ -1,0 +1,2225 @@
+{
+  "info": {
+    "_postman_id": "88184aee-9293-478d-8e11-534e7362cf4d",
+    "name": "SaveMoney · local API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Импортируйте коллекцию и Local.postman_environment.json, выберите Local. Запустите сервер на 127.0.0.1:8000 с отдельной демонстрационной базой. В Collection Runner выберите папки 01 и 02, одну итерацию, порядок как в коллекции. 01 создаёт собственные сущности и операции ноября 2026, не очищает бюджет и не меняет тему. Каждый запуск создаёт новые записи; общие суммы зависят от истории, тесты проверяют собственные записи. Ноябрь 2026 должен быть активным. Закрытая история не открывается повторно; используйте отдельную БД. 02 можно запускать отдельно: отклонённые запросы не меняют снимок. Папка 03 по умолчанию пропускается через pm.execution.skipRequest(). Для неё на отдельной БД установите allowSnapshotImport=true и запустите папку целиком без других клиентов, затем верните false. Удаление всего бюджета в коллекции отсутствует. Все денежные суммы — целые копейки."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000/api/v1",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Response content type', function () {",
+          "    if (pm.response.code !== 204) pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json');",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 · Main workflow",
+      "item": [
+        {
+          "name": "01 · Read settings and start a unique run",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/settings",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('runTag', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('originalTheme', body.data.theme);",
+                  "pm.test('Settings theme', function () { pm.expect(['system', 'light', 'dark']).to.include(body.data.theme); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "02 · PATCH current theme without changing preference",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/settings",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"theme\": \"{{originalTheme}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Theme preserved', function () { pm.expect(body.data.theme).to.eql(pm.collectionVariables.get('originalTheme')); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "03 · Create Income category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Income {{runTag}}\", \"kind\": \"income\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('incomeCategoryId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('kind', function () { pm.expect(body.data.kind).to.eql(\"income\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "04 · Create Food category",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Food {{runTag}}\", \"kind\": \"expense\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('foodCategoryId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('kind', function () { pm.expect(body.data.kind).to.eql(\"expense\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "05 · PATCH food category metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories/{{foodCategoryId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"icon\": \"🍎\", \"color\": \"#34a06a\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('icon', function () { pm.expect(body.data.icon).to.eql(\"🍎\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "06 · GET created category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories/{{foodCategoryId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Own category returned', function () { pm.expect(body.data.id).to.eql(pm.collectionVariables.get('foodCategoryId')); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "07 · List categories with pagination",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "08 · Create salary source 85000 RUB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/income-sources",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Salary {{runTag}}\", \"amount\": 8500000, \"schedule\": \"monthly_day\", \"dayOfMonth\": 20}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('sourceId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(8500000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "09 · GET created source",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/income-sources/{{sourceId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('dayOfMonth', function () { pm.expect(body.data.dayOfMonth).to.eql(20); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "10 · PATCH source metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/income-sources/{{sourceId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"sortOrder\": 1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('sortOrder', function () { pm.expect(body.data.sortOrder).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "11 · List sources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/income-sources?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "12 · Create rent obligation 50000 RUB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/obligations",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Rent {{runTag}}\", \"amount\": 5000000, \"dayOfMonth\": 10}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('obligationId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(5000000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "13 · GET created rent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/obligations/{{obligationId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('dayOfMonth', function () { pm.expect(body.data.dayOfMonth).to.eql(10); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "14 · PATCH rent metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/obligations/{{obligationId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"sortOrder\": 1}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('sortOrder', function () { pm.expect(body.data.sortOrder).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "15 · List obligations",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/obligations?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "16 · Create own savings goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Trip {{runTag}}\", \"targetAmount\": 10000000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('goalId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('targetAmount', function () { pm.expect(body.data.targetAmount).to.eql(10000000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "17 · GET created goal",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals/{{goalId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('status', function () { pm.expect(body.data.status).to.eql(\"active\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "18 · PATCH goal metadata",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals/{{goalId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"icon\": \"✈\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('icon', function () { pm.expect(body.data.icon).to.eql(\"✈\"); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "19 · List goals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "20 · Create November 2026 period",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods",
+            "description": "Период должен быть открытым. На повторном запуске 200 и createdIds: []. Для старого закрытого ноября используйте отдельную демонстрационную БД.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"date\": \"2026-11-05\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200, 201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('periodId', body.data.period.id);",
+                  "pm.test('November period', function () { pm.expect(body.data.period.year).to.eql(2026); pm.expect(body.data.period.month).to.eql(11); pm.expect(body.data.period.status).to.eql('active'); if (pm.response.code === 201) pm.expect(pm.response.headers.get('Location')).to.include(body.data.period.id); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "21 · Repeat period creation without duplicates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"date\": \"2026-11-05\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Idempotent period', function () { pm.expect(body.data.createdIds).to.eql([]); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "22 · GET period",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('month', function () { pm.expect(body.data.month).to.eql(11); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "23 · List periods",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "24 · Record salary 85000 RUB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"income\", \"amount\": 8500000, \"date\": \"2026-11-01\", \"categoryId\": \"{{incomeCategoryId}}\", \"incomeSourceId\": \"{{sourceId}}\", \"comment\": \"Salary {{runTag}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('incomeTransactionId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(8500000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "25 · Record food expense 450 RUB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"expense\", \"amount\": 45000, \"date\": \"2026-11-05\", \"categoryId\": \"{{foodCategoryId}}\", \"comment\": \"Lunch {{runTag}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('expenseTransactionId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(45000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "26 · GET created expense",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions/{{expenseTransactionId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('expenseCreatedAt', String(body.data.createdAt));",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(45000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "27 · PATCH expense comment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions/{{expenseTransactionId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"comment\": \"Lunch {{runTag}} checked\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(45000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "28 · Set own food envelope 30000 RUB",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}/envelopes/{{foodCategoryId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"limitAmount\": 3000000}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('envelopeId', body.data.id);",
+                  "pm.test('remaining', function () { pm.expect(body.data.remaining).to.eql(2955000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "29 · GET own envelope calculation",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}/envelopes/{{foodCategoryId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('spent', function () { pm.expect(body.data.spent).to.eql(45000); });",
+                  "pm.test('remaining', function () { pm.expect(body.data.remaining).to.eql(2955000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "30 · List envelopes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}/envelopes?limit=1&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('List and pagination', function () { pm.expect(body.data).to.be.an('array'); pm.expect(body.pagination.limit).to.eql(1); pm.expect(body.pagination.offset).to.eql(0); pm.expect(body.pagination.total).to.be.at.least(body.data.length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "31 · Dashboard checks own envelope only",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/dashboard?date=2026-11-05",
+            "description": "Итоговый баланс и резерв зависят от имеющихся данных. Проверяется собственный конверт."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Own envelope in dashboard', function () { const item = body.data.envelopes.find(e => e.categoryId === pm.collectionVariables.get('foodCategoryId')); pm.expect(item.spent).to.eql(45000); pm.expect(item.remaining).to.eql(2955000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "32 · Filter own transactions and comment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions?periodId={{periodId}}&categoryId={{foodCategoryId}}&q={{runTag}}&limit=50&offset=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Only own expense', function () { pm.expect(body.pagination.total).to.eql(1); pm.expect(body.data[0].id).to.eql(pm.collectionVariables.get('expenseTransactionId')); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "33 · Category report checks own row",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/reports/categories?periodId={{periodId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Own category amount', function () { const item = body.data.categories.find(c => c.categoryId === pm.collectionVariables.get('foodCategoryId')); pm.expect(item.amount).to.eql(45000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "34 · Deposit 1000 RUB to own goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"goal_deposit\", \"amount\": 100000, \"date\": \"2026-11-05\", \"goalId\": \"{{goalId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('depositId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(100000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "35 · Withdraw 250 RUB from own goal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"goal_withdrawal\", \"amount\": 25000, \"date\": \"2026-11-05\", \"goalId\": \"{{goalId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([201]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('withdrawalId', body.data.id);",
+                  "pm.test('Created entity has ID and Location', function () {",
+                  "    pm.expect(body.data.id).to.be.a('string').and.not.empty;",
+                  "    pm.expect(pm.response.headers.get('Location')).to.include(encodeURIComponent(body.data.id));",
+                  "});",
+                  "pm.test('amount', function () { pm.expect(body.data.amount).to.eql(25000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "36 · Own goal progress 750 RUB",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals/{{goalId}}/progress?date=2026-11-05",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('saved', function () { pm.expect(body.data.saved).to.eql(75000); });",
+                  "pm.test('remaining', function () { pm.expect(body.data.remaining).to.eql(9925000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "37 · Soft-delete own expense",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions/{{expenseTransactionId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([204]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('204 has no body', function () { pm.expect(pm.response.text()).to.eql(''); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "38 · Repeat DELETE is idempotent",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions/{{expenseTransactionId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([204]).to.include(pm.response.code);",
+                  "});",
+                  "pm.test('204 has no body', function () { pm.expect(pm.response.text()).to.eql(''); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "39 · Deleted expense no longer spent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}/envelopes/{{foodCategoryId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('spent', function () { pm.expect(body.data.spent).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "40 · Restore expense",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions/{{expenseTransactionId}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"deletedAt\": null}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('deletedAt', function () { pm.expect(body.data.deletedAt).to.eql(null); });",
+                  "pm.test('createdAt retained', function () { pm.expect(String(body.data.createdAt)).to.eql(pm.collectionVariables.get('expenseCreatedAt')); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "41 · Restored expense counted once",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/periods/{{periodId}}/envelopes/{{foodCategoryId}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('spent', function () { pm.expect(body.data.spent).to.eql(45000); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "02 · Rejected requests preserve state",
+      "item": [
+        {
+          "name": "01 · Capture state before rejected requests",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('snapshotBeforeNegative', JSON.stringify(body));",
+                  "pm.test('Snapshot is unwrapped', function () { pm.expect(body.schemaVersion).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unknown resource",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories/missing-{{runTag}}",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([404]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"not_found\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unknown query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories?unexpected=1",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Duplicate query",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories?limit=1&limit=2",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid pagination",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories?limit=0",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Client cannot assign ID",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"id\": \"client\", \"name\": \"Invalid\", \"kind\": \"expense\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Bool cannot be money",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/goals",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Invalid\", \"targetAmount\": true}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Zero transaction amount",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/transactions",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"type\": \"expense\", \"amount\": 0, \"date\": \"2026-11-05\", \"categoryId\": \"{{foodCategoryId}}\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Empty PATCH",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/settings",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Unsupported method",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/settings",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"theme\": \"dark\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([405]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"method_not_allowed\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });",
+                  "pm.test('Allow header', function () { pm.expect(pm.response.headers.get('Allow')).to.include('GET').and.include('PATCH'); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Malformed JSON",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/categories",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([400]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"invalid_json\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Non JSON body",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{baseUrl}}/categories",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([415]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"unsupported_media_type\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Invalid snapshot cannot replace budget",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\"schemaVersion\": 999}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([422]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Structured error', function () { pm.expect(body.error.code).to.eql(\"validation_error\"); pm.expect(body.error.message).to.be.a('string').and.not.empty; });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "Last · Rejected requests preserved all state",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Atomic rejection', function () { pm.expect(body).to.deep.eql(JSON.parse(pm.collectionVariables.get('snapshotBeforeNegative'))); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "03 · OPTIONAL snapshot roundtrip",
+      "description": "Полная замена. Только отдельная демонстрационная БД.",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "if (pm.environment.get('allowSnapshotImport') !== 'true') {",
+              "    pm.execution.skipRequest();",
+              "}"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "01 · Export just before roundtrip",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('roundtripSnapshot', JSON.stringify(body));",
+                  "pm.test('Snapshot schema', function () { pm.expect(body.schemaVersion).to.eql(1); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "02 · Import exact exported snapshot",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": "Полная замена бюджета. Выполняйте только на отдельной демонстрационной БД без других клиентов: снимок может перезаписать конкурентные изменения.",
+            "body": {
+              "mode": "raw",
+              "raw": "{{roundtripSnapshot}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('Import counts', function () { const before = JSON.parse(pm.collectionVariables.get('roundtripSnapshot')); for (const [key, count] of Object.entries(body.data.counts)) pm.expect(count).to.eql(before[key].length); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        },
+        {
+          "name": "03 · Re-export is byte-independent equal",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/snapshots/current",
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP status', function () {",
+                  "    pm.expect([200]).to.include(pm.response.code);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test('All IDs and metadata retained', function () { pm.expect(body).to.deep.eql(JSON.parse(pm.collectionVariables.get('roundtripSnapshot'))); });"
+                ]
+              }
+            }
+          ],
+          "response": []
+        }
+      ]
+    }
+  ]
+}
