@@ -1,17 +1,19 @@
 # Чек-поинт 3: сервер, MongoDB и документация
 
-Учебный однопользовательский SaveMoney. Ветка результата — `stage-3`. Реализованы этапы 7–9: REST API,
+Учебный однопользовательский SaveMoney. Ветка результата — `main`. Реализованы этапы 7–9: REST API,
 HTTP-сервер без фреймворков, Postman, MongoDB/PyMongo и mongomock.
 Интерфейсы React Native и Tauri остаются следующим этапом.
 
 ## Быстрый запуск
 
-Нужны Python 3.13, Git и Docker с Compose. В корне репозитория:
+Нужны Python 3.13, Git и Docker с Compose. Из корня репозитория:
 
 ```sh
+cd app/backend
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-dev.txt
+python -m pip install --upgrade 'pip>=25.1'
+python -m pip install --group runtime
 docker compose up -d
 python -m savemoney.server --init
 ```
@@ -60,9 +62,9 @@ MongoDB опубликована Docker только на loopback, данные
 8. При следующем периоде разбирать остатки через `/periods/{id}/closures`:
    `burn`, `carry_over`, `to_goal`. Решение повторяемо без двойного перевода.
 
-Удобнее пройти готовую [коллекцию Postman](postman/README.md): она связывает ID
+Удобнее пройти готовую [коллекцию Postman](app/backend/postman/README.md): она связывает ID
 между запросами и проверяет ответы. Пользовательского графического интерфейса пока нет.
-Документация всех 38 операций и JSON-примеры находятся в README и openapi.json.
+Документация всех 38 операций и JSON-примеры находятся в [README сервера](app/backend/README.md#rest-api) и [OpenAPI](app/backend/openapi.json).
 
 ## Перенос данных из памяти в MongoDB
 
@@ -110,6 +112,8 @@ MongoDB содержит один документ в коллекции `budget
 
 ## Проверки и CI
 
+Перед запуском проверок установите инструменты командой `python -m pip install --group dev`.
+
 ```sh
 SAVEMONEY_TEST_MONGO_URI=mongodb://127.0.0.1:27018 sh scripts/check.sh
 ```
@@ -121,7 +125,7 @@ SAVEMONEY_TEST_MONGO_URI=mongodb://127.0.0.1:27018 sh scripts/check.sh
 
 Реальная проверка создаёт отдельные временные БД, сохраняет операции через HTTP,
 перезапускает процесс сервера и переносит экспорт через CLI. Удаляются только созданные
-тестом базы. [Postman/Newman](postman/README.md) дополнительно проверяет сценарии API.
+тестом базы. [Postman/Newman](app/backend/postman/README.md) дополнительно проверяет сценарии API.
 
 GitHub Actions исполняется после push/PR. До публикации текущей ветки результаты
 локальных проверок не являются результатами удалённого CI.
@@ -177,7 +181,7 @@ python -m savemoney.server --database savemoney_defense --port 8000
 Чтобы начать показ заново, импортируйте его **только в демонстрационную базу**:
 
 ```sh
-python -m savemoney.server --database savemoney_defense --import-file docs/checkpoint3/demo-initial.json
+python -m savemoney.server --database savemoney_defense --import-file ../../docs/checkpoint3/demo-initial.json
 ```
 
 После импорта уже запущенный сервер увидит новые данные при следующем запросе.

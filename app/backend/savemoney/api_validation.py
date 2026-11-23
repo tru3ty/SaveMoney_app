@@ -1,4 +1,4 @@
-"""Strict validation of the subset of OpenAPI schemas used by this application."""
+"""Разбор маршрутов и проверка входных данных по схемам OpenAPI."""
 
 import json
 import re

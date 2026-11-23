@@ -1,4 +1,4 @@
-"""Single-user REST application; every mutation validates a private copy before CAS."""
+"""Обработка API-запросов и сохранение изменений бюджета."""
 
 from copy import deepcopy
 from dataclasses import replace
@@ -247,7 +247,7 @@ class Application:
             if generated_ids.intersection(b.transactions):
                 conflict('Идентификатор производной операции уже существует')
         b.close_envelope(key, body['decision'], goal_id=body.get('goalId'))
-        # Derived transaction IDs refer to the public envelope ID, including after import.
+        # После импорта ID конверта из API может отличаться от внутреннего.
         if created and body['decision'] == 'to_goal' and external_key != key:
             tx = b.transactions.pop('closure:' + key)
             b.transactions['closure:' + external_key] = replace(tx, id='closure:' + external_key)

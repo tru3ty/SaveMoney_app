@@ -1,4 +1,4 @@
-"""Map JSON metadata to the domain without losing opaque imported identifiers."""
+"""Преобразование снимка JSON в объекты бюджета с сохранением исходных ID."""
 
 from datetime import date
 from time import time_ns
