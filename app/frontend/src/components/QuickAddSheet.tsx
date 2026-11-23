@@ -5,7 +5,7 @@ import { Sheet } from './Sheet';
 import { Numpad } from './Numpad';
 import { useBudget } from '../store';
 import { categoryById, spentFor, activePeriod } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { TODAY } from '../lib/mode';
 import { formatMoney } from '../lib/money';
 import { CategoryIcon } from './CategoryIcon';
 import type { Category } from '../types';
@@ -18,7 +18,7 @@ interface Props {
 
 /** Быстрый ввод траты по конкретному конверту — цель 3 секунды */
 export function QuickAddSheet({ categoryId, onClose, onMore }: Props) {
-  const { data, addTransaction } = useBudget();
+  const { data, busy, addTransaction } = useBudget();
   const [amountKop, setAmountKop] = useState(0);
   const [comment, setComment] = useState('');
   const [done, setDone] = useState(false);
@@ -55,15 +55,16 @@ export function QuickAddSheet({ categoryId, onClose, onMore }: Props) {
     });
   };
 
-  const submit = () => {
-    if (amountKop <= 0 || !categoryId) return;
-    addTransaction({
+  const submit = async () => {
+    if (busy || done || amountKop <= 0 || !categoryId) return;
+    const saved = await addTransaction({
       type: 'expense',
       amount: amountKop,
       date: TODAY,
       categoryId,
       comment,
     });
+    if (!saved) return;
     setDone(true);
     setTimeout(onClose, 450);
   };

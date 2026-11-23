@@ -35,17 +35,16 @@ const DECISIONS: {
 ];
 
 export function ClosureModal({ open, onClose }: Props) {
-  const { data, setClosure, applyClosures } = useBudget();
+  const { data, busy, applyClosures } = useBudget();
   const [draft, setDraft] = useState<
     Record<string, { decision: ClosureDecision; goalId: string | null }>
   >({});
 
   const review = pendingReviewPeriod(data);
-  // конверты октября с остатками на конец периода
   const rows = useMemo<EnvelopeView[]>(() => {
     if (!review) return [];
     return data.envelopes
-      .filter((e) => e.periodId === review.id)
+      .filter((e) => e.periodId === review.id && !data.closures.some((c) => c.envelopeId === e.id))
       .map((e) => {
         const spent = spentFor(data, e.categoryId, review.id);
         const budget = e.limitAmount + e.carryOverAmount;
@@ -71,11 +70,10 @@ export function ClosureModal({ open, onClose }: Props) {
   ) => {
     const next = { ...draft, [envelopeId]: { decision, goalId } };
     setDraft(next);
-    setClosure(envelopeId, decision, goalId);
   };
 
-  const apply = () => {
-    applyClosures();
+  const apply = async () => {
+    if (!await applyClosures(draft)) return;
     setDraft({});
     onClose();
   };
@@ -223,7 +221,7 @@ export function ClosureModal({ open, onClose }: Props) {
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={apply}
-                disabled={!allDecided}
+                disabled={!allDecided || busy}
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-500 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-indigo-500/25 transition
                   enabled:hover:bg-indigo-600 disabled:opacity-40"
               >

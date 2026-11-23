@@ -5,7 +5,7 @@ import { Sheet } from '../components/Sheet';
 import { Numpad } from '../components/Numpad';
 import { useBudget } from '../store';
 import { goalView } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { TODAY } from '../lib/mode';
 import { formatMoney } from '../lib/money';
 import { formatDate } from '../lib/dates';
 import type { Goal } from '../types';
@@ -17,7 +17,7 @@ interface Props {
 
 /** «Отложить» / «Снять» с цели — numpad как в быстром вводе */
 export function GoalSheet({ goal, onClose }: Props) {
-  const { data, addTransaction } = useBudget();
+  const { data, busy, addTransaction } = useBudget();
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [amountKop, setAmountKop] = useState(0);
   const [done, setDone] = useState(false);
@@ -41,15 +41,16 @@ export function GoalSheet({ goal, onClose }: Props) {
     });
   };
 
-  const submit = () => {
-    if (!goal || amountKop <= 0) return;
-    addTransaction({
+  const submit = async () => {
+    if (busy || done || !goal || amountKop <= 0) return;
+    const saved = await addTransaction({
       type: mode === 'deposit' ? 'goal_deposit' : 'goal_withdrawal',
       amount: amountKop,
       date: TODAY,
       goalId: goal.id,
       comment: mode === 'deposit' ? 'Пополнение цели' : 'Снятие с цели',
     });
+    if (!saved) return;
     setDone(true);
     setTimeout(() => {
       reset();

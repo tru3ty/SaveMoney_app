@@ -22,6 +22,7 @@ body {
 
 .app-shell {
   @apply relative mx-auto flex h-full w-full max-w-[430px] flex-col overflow-hidden bg-slate-50;
+  padding-top: env(safe-area-inset-top);
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 80px rgb(0 0 0 / 0.5);
 }
 

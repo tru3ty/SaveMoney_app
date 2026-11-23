@@ -137,7 +137,7 @@ export function ThemeToggle({ shellRef }: Props) {
         whileTap={{ scale: 0.82, rotate: -20 }}
         onClick={onClick}
         aria-label={dark ? 'Включить светлую тему' : 'Включить тёмную тему'}
-        className="absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-md ring-1 ring-slate-200/70 backdrop-blur-md transition hover:text-slate-800"
+        className="absolute right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-md ring-1 ring-slate-200/70 backdrop-blur-md transition hover:text-slate-800"
       >
         <AnimatePresence mode="wait" initial={false}>
           <motion.span

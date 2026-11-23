@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Archive, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useBudget } from '../store';
 import { goalView } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { isDemoMode, TODAY } from '../lib/mode';
 import { formatMoney } from '../lib/money';
 import { formatDate } from '../lib/dates';
 import { CategoryIcon } from '../components/CategoryIcon';
@@ -55,7 +55,7 @@ export function Goals() {
   const [active, setActive] = useState<Goal | null>(null);
   const [form, setForm] = useState<Goal | 'new' | null>(null);
 
-  const goals = data.goals.filter((g) => g.status === 'active');
+  const goals = data.goals.filter((g) => g.status !== 'archived');
   const archived = data.goals.filter((g) => g.status === 'archived');
 
   return (
@@ -223,10 +223,10 @@ function GoalCard({
         </button>
         <button
           onClick={() => deleteGoal(g.id)}
-          aria-label={`Удалить: ${g.name}`}
+          aria-label={`${isDemoMode ? 'Удалить' : 'В архив'}: ${g.name}`}
           className="flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
         >
-          <Trash2 size={14} />
+          {isDemoMode ? <Trash2 size={14} /> : <Archive size={14} />}
         </button>
       </div>
     </motion.div>

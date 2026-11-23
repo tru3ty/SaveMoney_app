@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useBudget } from '../store';
+import { isDemoMode } from '../lib/mode';
 import {
   EntitySheet,
   MoneyField,
@@ -43,8 +44,8 @@ export function GoalFormSheet({ goal, open, onClose }: Props) {
     setActive(editing ? editing.status !== 'archived' : true);
   }
 
-  const submit = () => {
-    const ok = upsertGoal(
+  const submit = async () => {
+    const ok = await upsertGoal(
       {
         name,
         targetAmount,
@@ -58,9 +59,9 @@ export function GoalFormSheet({ goal, open, onClose }: Props) {
     if (ok) onClose();
   };
 
-  const onDelete = () => {
+  const onDelete = async () => {
     if (!editing) return;
-    if (deleteGoal(editing.id)) onClose();
+    if (await deleteGoal(editing.id)) onClose();
   };
 
   return (
@@ -117,7 +118,7 @@ export function GoalFormSheet({ goal, open, onClose }: Props) {
             onClick={onDelete}
             className="w-full rounded-xl bg-red-50 py-2.5 text-sm font-bold text-red-500 ring-1 ring-red-100 transition hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:ring-red-500/20"
           >
-            Удалить цель
+            {isDemoMode ? 'Удалить цель' : 'Архивировать цель'}
           </button>
           <p className="text-center text-[11px] text-slate-400 ">
             Цель с операциями нельзя удалить — используйте «Неактивно» (архив).

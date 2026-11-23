@@ -60,8 +60,11 @@ export function isWeekend(s: string): boolean {
 }
 
 export function todayISO(): string {
-  // фиксированная «сегодня» для стабильного демо-прототипа
-  return '2026-11-23';
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function lastDayOfMonth(year: number, month: number): number {

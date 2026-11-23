@@ -96,9 +96,11 @@ export function Reports() {
   const { data } = useBudget();
   const active = activePeriod(data);
   const [periodId, setPeriodId] = useState<string | null>(null);
-  const current = periodId ?? active?.id ?? '';
+  const current = data.periods.some((period) => period.id === periodId)
+    ? periodId!
+    : active?.id ?? data.periods.map((period) => period.id).sort().at(-1) ?? '';
 
-  const prevId = prevPeriodId(current);
+  const prevId = current ? prevPeriodId(current) : null;
   const cats = useMemo(() => expenseByCategory(data, current), [data, current]);
   const total = useMemo(
     () => periodTotalExpense(data, current),
@@ -146,7 +148,7 @@ export function Reports() {
             <ChevronLeft size={18} />
           </button>
           <span className="text-[15px] font-bold text-slate-900">
-            {formatMonth(current)}
+            {current ? formatMonth(current) : 'Нет периодов'}
           </span>
           <button
             onClick={() => shiftPeriod(1)}

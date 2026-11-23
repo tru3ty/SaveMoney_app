@@ -1,16 +1,13 @@
 import {
-  createContext,
   useCallback,
-  useContext,
+  useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import type {
   BudgetData,
   Category,
-  ClosureDecision,
   Envelope,
   Goal,
   IncomeSource,
@@ -18,9 +15,15 @@ import type {
   Period,
   PeriodClosure,
   Transaction,
-  TransactionType,
 } from './types';
 import { initialData } from './data/mock';
+import { DEMO_STORAGE_KEY, loadDemoBudget, saveDemoBudget } from './data/demo-storage';
+import {
+  BudgetContext, ToastContext, useBudgetToasts,
+  type BudgetContextValue, type ClosureDraft, type NewTransaction,
+} from './budget-context';
+
+export { useBudget, useToasts } from './budget-context';
 import { activePeriod, pendingReviewPeriod, spentFor } from './lib/budget';
 import {
   ValidationError,
@@ -42,74 +45,9 @@ import {
 } from './lib/validate';
 import { lastDayOfMonth } from './lib/dates';
 
-let txSeq = 100;
-const newTxId = () => `tx-new-${++txSeq}`;
-const uniq = (s: string) =>
-  `${
-    s
-      .toLowerCase()
-      .replace(/[^a-zа-яё0-9]+/gi, '-')
-      .replace(/^-+|-+$/g, '') || 'item'
-  }-${Date.now() % 100000}${Math.floor(Math.random() * 90 + 10)}`;
+const newId = () => crypto.randomUUID();
 
-export interface NewTransaction {
-  type: TransactionType;
-  amount: number;
-  date: string;
-  categoryId?: string | null;
-  goalId?: string | null;
-  incomeSourceId?: string | null;
-  obligationId?: string | null;
-  comment?: string;
-}
-
-export interface Toast {
-  id: number;
-  text: string;
-  kind: 'error' | 'success';
-}
-
-/** Проверка + построение нового состояния. Ничего не меняет, только читает d. */
-type Plan = (d: BudgetData) => BudgetData;
-
-interface BudgetContextValue {
-  data: BudgetData;
-  addTransaction: (t: NewTransaction) => boolean;
-  updateTransaction: (id: string, t: NewTransaction) => boolean;
-  deleteTransaction: (id: string) => boolean;
-  restoreTransaction: (id: string) => boolean;
-  createCategory: (input: Partial<Category>) => boolean;
-  updateCategory: (id: string, patch: Partial<Category>) => boolean;
-  deleteCategory: (id: string) => boolean;
-  upsertIncomeSource: (input: Partial<IncomeSource>, id?: string) => boolean;
-  deleteIncomeSource: (id: string) => boolean;
-  upsertObligation: (input: Partial<Obligation>, id?: string) => boolean;
-  deleteObligation: (id: string) => boolean;
-  upsertGoal: (input: Partial<Goal>, id?: string) => boolean;
-  deleteGoal: (id: string) => boolean;
-  setEnvelopeLimit: (
-    categoryId: string,
-    limitAmount: number,
-    periodId?: string,
-  ) => boolean;
-  createPeriodsUpTo: (date: string) => boolean;
-  setClosure: (
-    envelopeId: string,
-    decision: ClosureDecision,
-    goalId: string | null,
-  ) => void;
-  applyClosures: () => void;
-  exportSnapshot: () => string;
-  importSnapshot: (json: string) => boolean;
-  resetData: () => void;
-}
-
-const BudgetContext = createContext<BudgetContextValue | null>(null);
-const ToastContext = createContext<{
-  toasts: Toast[];
-  dismiss: (id: number) => void;
-  push: (text: string, kind?: Toast['kind']) => void;
-} | null>(null);
+type Plan = (data: BudgetData) => BudgetData;
 
 function monthId(y: number, m: number) {
   return `${y}-${String(m).padStart(2, '0')}`;
@@ -155,43 +93,46 @@ function cloneEnvelopes(
     });
 }
 
-export function BudgetProvider({ children }: { children: ReactNode }) {
-  const [data, setData] = useState<BudgetData>(initialData);
-  const dataRef = useRef(data);
-  dataRef.current = data;
-  const [closureDraft, setClosureDraft] = useState<
-    Record<string, { decision: ClosureDecision; goalId: string | null }>
-  >({});
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const toastSeq = useRef(0);
+export function DemoBudgetProvider({ children }: { children: ReactNode }) {
+  const [data, setData] = useState(loadDemoBudget);
+  const toasts = useBudgetToasts();
+  const { push } = toasts;
 
-  const push = useCallback((text: string, kind: Toast['kind'] = 'error') => {
-    const id = ++toastSeq.current;
-    setToasts((t) => [...t.slice(-3), { id, text, kind }]);
-    window.setTimeout(
-      () => setToasts((t) => t.filter((x) => x.id !== id)),
-      kind === 'error' ? 5000 : 2200,
-    );
+  useEffect(() => {
+    const synchronize = (event: StorageEvent) => {
+      if (event.key === null || event.key === DEMO_STORAGE_KEY) setData(loadDemoBudget());
+    };
+    window.addEventListener('storage', synchronize);
+    return () => window.removeEventListener('storage', synchronize);
   }, []);
-  const dismiss = useCallback(
-    (id: number) => setToasts((t) => t.filter((x) => x.id !== id)),
-    [],
-  );
 
-  // Последнее состояние доступно до следующего рендера, даже если операции идут подряд.
   const run = useCallback(
-    (plan: Plan, okMsg?: string): boolean => {
-      let next: BudgetData;
-      try {
-        next = plan(dataRef.current);
-      } catch (e) {
-        push(e instanceof ValidationError ? e.message : 'Неожиданная ошибка');
-        return false;
-      }
-      dataRef.current = next;
-      setData(next);
-      if (okMsg) push(okMsg, 'success');
-      return true;
+    (plan: Plan, okMsg?: string) => {
+      const commit = () => {
+        let next: BudgetData;
+        try {
+          next = plan(loadDemoBudget());
+        } catch (e) {
+          push(e instanceof ValidationError ? e.message : 'Неожиданная ошибка');
+          return false;
+        }
+        try {
+          saveDemoBudget(undefined, next);
+        } catch {
+          push('Не удалось сохранить демобюджет в браузере');
+          return false;
+        }
+        setData(next);
+        if (okMsg) push(okMsg, 'success');
+        return true;
+      };
+      // Вкладки на одном адресе записывают снимок по очереди.
+      return navigator.locks
+        ? navigator.locks.request(DEMO_STORAGE_KEY, commit).catch(() => {
+            push('Не удалось получить доступ к демобюджету');
+            return false;
+          })
+        : commit();
     },
     [push],
   );
@@ -219,7 +160,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   const addTransaction = useCallback(
     (t: NewTransaction) => {
-      const id = newTxId();
+      const id = newId();
       const createdAt = Date.now();
       return run((d) => {
         const base = ensurePeriod(d, t.date);
@@ -307,7 +248,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     (input: Partial<Category>) => {
       return run((d) => {
         const v = validateCategoryInput(d, input);
-        const id = uniq(v.n);
+        const id = newId();
         const siblings = d.categories.filter(
           (c) => c.kind === v.kind && c.parentId === v.parentId,
         );
@@ -424,7 +365,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
             };
           }
           const s: IncomeSource = {
-            id: uniq(v.n),
+            id: newId(),
             name: v.n,
             amount: v.amount,
             schedule: v.schedule,
@@ -492,7 +433,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
             };
           }
           const o: Obligation = {
-            id: uniq(v.n),
+            id: newId(),
             name: v.n,
             amount: v.amount,
             dayOfMonth: v.day,
@@ -551,7 +492,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
             return probe;
           }
           const g: Goal = {
-            id: uniq(v.n),
+            id: newId(),
             name: v.n,
             targetAmount: v.targetAmount,
             targetDate: v.targetDate,
@@ -651,15 +592,8 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [run],
   );
 
-  const setClosure = useCallback(
-    (envelopeId: string, decision: ClosureDecision, goalId: string | null) => {
-      setClosureDraft((s) => ({ ...s, [envelopeId]: { decision, goalId } }));
-    },
-    [],
-  );
-
-  const applyClosures = useCallback(() => {
-    const ok = run((d) => {
+  const applyClosures = useCallback((closureDraft: ClosureDraft) => {
+    return run((d) => {
       const pending = pendingReviewPeriod(d);
       const next = activePeriod(d);
       if (!pending || !next)
@@ -727,7 +661,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
             comment: 'Перевод из конверта',
           });
           newTxs.push({
-            id: newTxId(),
+            id: newId(),
             type: 'goal_deposit',
             amount: v.amount,
             date: v.date,
@@ -756,8 +690,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
         ),
       };
     }, 'Разбор периода завершён');
-    if (ok) setClosureDraft({});
-  }, [run, closureDraft]);
+  }, [run]);
 
   const exportSnapshot = useCallback(
     () =>
@@ -856,17 +789,15 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
     [run],
   );
 
-  const resetData = useCallback(() => {
-    const fresh = structuredClone(initialData);
-    dataRef.current = fresh;
-    setData(fresh);
-    setClosureDraft({});
-    push('Данные сброшены', 'success');
-  }, [push]);
+  const resetData = useCallback(
+    () => run(() => structuredClone(initialData), 'Демобюджет восстановлен'),
+    [run],
+  );
 
   const value = useMemo<BudgetContextValue>(
     () => ({
       data,
+      busy: false,
       addTransaction,
       updateTransaction,
       deleteTransaction,
@@ -882,7 +813,6 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       deleteGoal,
       setEnvelopeLimit,
       createPeriodsUpTo,
-      setClosure,
       applyClosures,
       exportSnapshot,
       importSnapshot,
@@ -905,7 +835,6 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
       deleteGoal,
       setEnvelopeLimit,
       createPeriodsUpTo,
-      setClosure,
       applyClosures,
       exportSnapshot,
       importSnapshot,
@@ -915,7 +844,7 @@ export function BudgetProvider({ children }: { children: ReactNode }) {
 
   return (
     <BudgetContext.Provider value={value}>
-      <ToastContext.Provider value={{ toasts, dismiss, push }}>
+      <ToastContext.Provider value={toasts}>
         {children}
       </ToastContext.Provider>
     </BudgetContext.Provider>
@@ -943,16 +872,4 @@ function buildTx(
     createdAt,
     deletedAt: null,
   };
-}
-
-export function useBudget(): BudgetContextValue {
-  const ctx = useContext(BudgetContext);
-  if (!ctx) throw new Error('useBudget outside provider');
-  return ctx;
-}
-
-export function useToasts() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) throw new Error('useToasts outside provider');
-  return ctx;
 }

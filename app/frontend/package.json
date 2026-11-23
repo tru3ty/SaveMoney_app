@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "dev:demo": "vite --mode demo",
+    "build:demo": "tsc -b && vite build --mode demo --outDir dist-demo && node scripts/build-service-worker.mjs",
+    "preview:demo": "vite preview --mode demo --outDir dist-demo"
   },
   "dependencies": {
     "framer-motion": "^12.0.0",

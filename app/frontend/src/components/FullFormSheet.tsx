@@ -19,7 +19,7 @@ import {
   dashboard,
   goalSaved,
 } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { isDemoMode, TODAY } from '../lib/mode';
 import { formatMoney } from '../lib/money';
 import { toISO, addDays, parseDate } from '../lib/dates';
 import { inputCls } from './ui';
@@ -93,7 +93,7 @@ const EMPTY: Required<Omit<TxPreset, never>> = {
 };
 
 export function FullFormSheet({ open, onClose, preset, tx }: Props) {
-  const { data, addTransaction, updateTransaction } = useBudget();
+  const { data, overview, busy, addTransaction, updateTransaction } = useBudget();
 
   const [type, setType] = useState<TransactionType>('expense');
   const [amountKop, setAmountKop] = useState(0);
@@ -113,7 +113,10 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
   const seedKey = useRef('');
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      seedKey.current = '';
+      return;
+    }
     const key = tx ? `tx:${tx.id}` : `new:${JSON.stringify(preset ?? {})}`;
     if (seedKey.current === key) return;
     seedKey.current = key;
@@ -143,7 +146,7 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
   }, [open, tx, preset]);
 
   const period = activePeriod(data);
-  const dash = period ? dashboard(data, period.id, TODAY) : null;
+  const dash = overview ?? (period ? dashboard(data, period.id, TODAY) : null);
 
   // Группы категорий нужного вида (верхний уровень + подкатегории)
   const categoryGroups = useMemo(() => {
@@ -153,7 +156,7 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
       .map((top) => ({ top, children: childrenOf(data, top.id) }));
   }, [data, type]);
 
-  const goals = data.goals.filter((g) => g.status === 'active');
+  const goals = data.goals.filter((g) => g.status !== 'archived');
   const sources = data.incomeSources.filter((s) => s.isActive);
   const obligations = data.obligations.filter((o) => o.isActive);
 
@@ -180,7 +183,15 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
   const shiftDate = (days: number) =>
     setDate(toISO(addDays(parseDate(date), days)));
 
+  useEffect(() => {
+    if (!open || !done) return;
+    const timer = window.setTimeout(onClose, 420);
+    return () => window.clearTimeout(timer);
+  }, [open, done, onClose]);
+
+  const needsPeriod = !isDemoMode && !data.periods.some((item) => item.id === date.slice(0, 7));
   const validate = (): string => {
+    if (needsPeriod) return 'Для даты операции ещё не открыт период';
     if (amountKop <= 0) return 'Введите сумму';
     if ((type === 'expense' || type === 'income') && !categoryId)
       return 'Выберите категорию';
@@ -192,7 +203,8 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
     return '';
   };
 
-  const submit = () => {
+  const submit = async () => {
+    if (busy || done) return;
     const err = validate();
     if (err) {
       setError(err);
@@ -209,10 +221,9 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
       obligationId: type === 'expense' ? obligationId : null,
       comment,
     };
-    const ok = tx ? updateTransaction(tx.id, payload) : addTransaction(payload);
+    const ok = await (tx ? updateTransaction(tx.id, payload) : addTransaction(payload));
     if (ok) {
       setDone(true);
-      setTimeout(onClose, 420);
     }
   };
 
@@ -222,7 +233,7 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
   return (
     <Sheet
       open={open}
-      onClose={onClose}
+      onClose={() => { if (!busy) onClose(); }}
       title={editing ? 'Изменить операцию' : 'Новая операция'}
     >
       {/* Переключатель типа */}
@@ -512,7 +523,7 @@ export function FullFormSheet({ open, onClose, preset, tx }: Props) {
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={submit}
-        disabled={amountKop <= 0 || done}
+        disabled={amountKop <= 0 || done || busy}
         className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-bold text-white shadow-lg transition
  ${
    type === 'expense'

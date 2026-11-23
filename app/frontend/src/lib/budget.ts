@@ -18,7 +18,9 @@ export function activePeriod(data: BudgetData): Period | undefined {
 }
 
 export function pendingReviewPeriod(data: BudgetData): Period | undefined {
-  return data.periods.find((p) => p.status === 'pending_review');
+  return data.periods
+    .filter((period) => period.status === 'pending_review')
+    .sort((left, right) => left.startDate.localeCompare(right.startDate))[0];
 }
 
 export function categoryById(
@@ -28,9 +30,13 @@ export function categoryById(
   return data.categories.find((c) => c.id === id);
 }
 
-export function childrenOf(data: BudgetData, parentId: string): Category[] {
+export function childrenOf(
+  data: BudgetData,
+  parentId: string,
+  { includeArchived = false } = {},
+): Category[] {
   return data.categories
-    .filter((c) => c.parentId === parentId && !c.isArchived)
+    .filter((c) => c.parentId === parentId && (includeArchived || !c.isArchived))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
@@ -38,7 +44,8 @@ export function childrenOf(data: BudgetData, parentId: string): Category[] {
 export function categoryTreeIds(data: BudgetData, rootId: string): Set<string> {
   const ids = new Set<string>([rootId]);
   const walk = (pid: string) => {
-    for (const c of childrenOf(data, pid)) {
+    for (const c of childrenOf(data, pid, { includeArchived: true })) {
+      if (ids.has(c.id)) continue;
       ids.add(c.id);
       walk(c.id);
     }
@@ -275,7 +282,7 @@ export function expenseByCategory(
     children: { category: Category; amount: number }[];
   }[] = [];
   for (const cat of data.categories) {
-    if (cat.kind !== 'expense' || cat.parentId !== null || cat.isArchived)
+    if (cat.kind !== 'expense' || cat.parentId !== null)
       continue;
     const ids = categoryTreeIds(data, cat.id);
     const amount = data.transactions
@@ -286,7 +293,7 @@ export function expenseByCategory(
           txInPeriod(t, period),
       )
       .reduce((s, t) => s + t.amount, 0);
-    const children = childrenOf(data, cat.id).map((c) => ({
+    const children = childrenOf(data, cat.id, { includeArchived: true }).map((c) => ({
       category: c,
       amount: data.transactions
         .filter(

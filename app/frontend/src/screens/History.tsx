@@ -252,11 +252,12 @@ export function History({ onEditTx }: Props) {
         {selected && (
           <TxDetail
             tx={selected}
-            onDelete={() => {
-              deleteTransaction(selected.id);
-              setSelected(null);
+            onDelete={async () => {
+              if (await deleteTransaction(selected.id)) setSelected(null);
             }}
-            onRestore={() => restoreTransaction(selected.id)}
+            onRestore={async () => {
+              if (await restoreTransaction(selected.id)) setSelected(null);
+            }}
             onEdit={
               onEditTx
                 ? () => {

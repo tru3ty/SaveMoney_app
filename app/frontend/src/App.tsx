@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Settings } from 'lucide-react';
-import { BudgetProvider } from './store';
+import { DemoBudgetProvider } from './store';
+import { ApiBudgetProvider } from './api/ApiBudgetProvider';
+import { isDemoMode } from './lib/mode';
 import { Dashboard } from './screens/Dashboard';
 import { History } from './screens/History';
 import { Goals } from './screens/Goals';
@@ -20,6 +22,8 @@ interface TxFormState {
   preset?: TxPreset | null;
   tx?: Transaction | null;
 }
+
+const BudgetProvider = isDemoMode ? DemoBudgetProvider : ApiBudgetProvider;
 
 const CLOSED_FORM: TxFormState = { open: false };
 
@@ -42,10 +46,16 @@ function Shell() {
       <button
         onClick={() => setSettingsOpen(true)}
         aria-label="Настройки"
-        className="absolute right-14 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-md ring-1 ring-slate-200/70 backdrop-blur-md transition hover:text-slate-800 "
+        className="absolute right-14 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-slate-500 shadow-md ring-1 ring-slate-200/70 backdrop-blur-md transition hover:text-slate-800 "
       >
         <Settings size={17} />
       </button>
+
+      {isDemoMode && (
+        <p className="shrink-0 px-4 pb-1 pt-4 text-xs font-semibold text-slate-600">
+          Демо · данные в браузере
+        </p>
+      )}
 
       <AnimatePresence mode="wait">
         <motion.main

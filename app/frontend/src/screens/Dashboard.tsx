@@ -10,13 +10,14 @@ import {
 import { useBudget } from '../store';
 import {
   activePeriod,
+  periodOf,
   categoryById,
   dashboard,
   envelopeViews,
   obligationNextDate,
   pendingReviewPeriod,
 } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { isDemoMode, TODAY } from '../lib/mode';
 import { formatDate, formatMonth } from '../lib/dates';
 import { formatMoney } from '../lib/money';
 import { AnimatedNumber } from '../components/AnimatedNumber';
@@ -36,7 +37,7 @@ function EnvelopeRow({
 }: {
   env: EnvelopeView;
   index: number;
-  onAdd: () => void;
+  onAdd?: () => void;
 }) {
   const { data } = useBudget();
   const cat = categoryById(data, env.categoryId);
@@ -93,6 +94,7 @@ function EnvelopeRow({
         <motion.button
           whileTap={{ scale: 0.85 }}
           onClick={onAdd}
+          disabled={!onAdd}
           aria-label={`Добавить трату: ${cat?.name}`}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm shadow-emerald-500/30 transition hover:bg-emerald-600"
         >
@@ -104,14 +106,28 @@ function EnvelopeRow({
 }
 
 export function Dashboard({ onQuickAdd, onReview }: Props) {
-  const { data } = useBudget();
-  const period = activePeriod(data);
+  const { data, overview, busy, createPeriodsUpTo } = useBudget();
+  const period = isDemoMode ? activePeriod(data) : periodOf(data, TODAY.slice(0, 7));
   const review = pendingReviewPeriod(data);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  if (!period) return null;
-  const dash = dashboard(data, period.id, TODAY);
+  if (!period) {
+    return (
+      <section className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <h1 className="text-lg font-bold">Текущий период ещё не открыт</h1>
+        <button
+          type="button"
+          disabled={busy}
+          className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white disabled:opacity-60"
+          onClick={() => void createPeriodsUpTo(TODAY)}
+        >
+          Открыть текущий период
+        </button>
+      </section>
+    );
+  }
+  const dash = overview ?? dashboard(data, period.id, TODAY);
   const envelopes = envelopeViews(data, period.id, TODAY);
   const availableNegative = dash.available < 0;
 
@@ -216,7 +232,7 @@ export function Dashboard({ onQuickAdd, onReview }: Props) {
             key={env.id}
             env={env}
             index={i}
-            onAdd={() => onQuickAdd(env.categoryId)}
+            onAdd={period.status === 'active' ? () => onQuickAdd(env.categoryId) : undefined}
           />
         ))}
       </div>

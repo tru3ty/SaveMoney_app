@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useBudget } from '../store';
 import { categoryById, envelopeViews, activePeriod } from '../lib/budget';
-import { TODAY } from '../data/mock';
+import { isDemoMode, TODAY } from '../lib/mode';
 import { formatMoney } from '../lib/money';
 import { formatMonth } from '../lib/dates';
 import { CategoryIcon } from '../components/CategoryIcon';
@@ -135,7 +135,7 @@ function ItemRow({
         <Pencil size={15} />
       </IconBtn>
       {onDelete && (
-        <IconBtn onClick={onDelete} title="Удалить" danger>
+        <IconBtn onClick={onDelete} title={isDemoMode ? 'Удалить' : 'Отключить'} danger>
           <Trash2 size={15} />
         </IconBtn>
       )}
@@ -257,8 +257,8 @@ function IncomeForm({
     setActive(source?.isActive ?? true);
   }
 
-  const submit = () => {
-    const ok = upsertIncomeSource(
+  const submit = async () => {
+    const ok = await upsertIncomeSource(
       {
         name,
         amount,
@@ -402,11 +402,13 @@ function ObligationForm({
     setActive(obligation?.isActive ?? true);
   }
 
-  const submit = () =>
-    upsertObligation(
+  const submit = async () => {
+    const ok = await upsertObligation(
       { name, amount, dayOfMonth: day, categoryId, isActive: active },
       obligation?.id,
-    ) && onClose();
+    );
+    if (ok) onClose();
+  };
 
   return (
     <EntitySheet
@@ -555,7 +557,7 @@ function CategoryRow({
       <IconBtn onClick={onEdit} title="Изменить">
         <Pencil size={14} />
       </IconBtn>
-      <IconBtn onClick={onDelete} title="Удалить" danger>
+      <IconBtn onClick={onDelete} title={isDemoMode ? 'Удалить' : 'В архив'} danger>
         <Trash2 size={14} />
       </IconBtn>
     </div>
@@ -601,7 +603,7 @@ function CategoryForm({
     setError('');
   }
 
-  const submit = () => {
+  const submit = async () => {
     setError('');
     try {
       validateCategoryInput(data, { name, kind, parentId, color });
@@ -609,7 +611,7 @@ function CategoryForm({
       setError(e instanceof Error ? e.message : 'Ошибка');
       return;
     }
-    const ok = category
+    const ok = await (category
       ? updateCategory(category.id, {
           name,
           parentId,
@@ -617,7 +619,7 @@ function CategoryForm({
           icon,
           isArchived: archived,
         })
-      : createCategory({ name, kind, parentId, color, icon });
+      : createCategory({ name, kind, parentId, color, icon }));
     if (ok) onClose();
   };
 
@@ -695,6 +697,11 @@ function EnvelopesSection() {
 
   const period = data.periods.find((p) => p.id === periodId);
   const idx = periods.indexOf(periodId);
+  const missingCategories = period?.status === 'active'
+    ? data.categories.filter((category) =>
+        category.kind === 'expense' && !category.parentId && !category.isArchived
+        && !views.some((view) => view.categoryId === category.id))
+    : [];
 
   return (
     <div className="space-y-2">
@@ -751,6 +758,18 @@ function EnvelopesSection() {
           </div>
         );
       })}
+      {missingCategories.length > 0 && (
+        <div className="space-y-2 pt-2">
+          <h3 className="text-sm font-bold text-slate-900">Новый конверт</h3>
+          {missingCategories.map((category) => (
+            <AddButton
+              key={category.id}
+              label={category.name}
+              onClick={() => setEditing({ categoryId: category.id, limit: 0 })}
+            />
+          ))}
+        </div>
+      )}
       <EnvelopeLimitSheet
         editing={editing}
         periodId={periodId}
@@ -778,9 +797,9 @@ function EnvelopeLimitSheet({
     setLimit(editing?.limit ?? 0);
   }
   const cat = editing ? categoryById(data, editing.categoryId) : undefined;
-  const submit = () => {
+  const submit = async () => {
     if (!editing) return;
-    const ok = setEnvelopeLimit(editing.categoryId, limit, periodId);
+    const ok = await setEnvelopeLimit(editing.categoryId, limit, periodId);
     if (ok) onClose();
   };
   return (
@@ -819,6 +838,7 @@ function DataSection() {
   };
 
   const onImport = (file: File) => {
+    if (!window.confirm('Заменить текущий бюджет данными из выбранного файла?')) return;
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
@@ -872,18 +892,19 @@ function DataSection() {
           Опасная зона
         </div>
         <p className="mt-1 text-xs text-red-500/80 dark:text-red-300/70">
-          Удалит все данные и вернёт настройки по умолчанию.
+          {isDemoMode
+            ? 'Заменит ваши изменения исходными демоданными.'
+            : 'Удалит все данные и вернёт настройки по умолчанию.'}
         </p>
         {confirmReset ? (
           <div className="mt-3 flex gap-2">
             <button
-              onClick={() => {
-                resetData();
-                setConfirmReset(false);
+              onClick={async () => {
+                if (await resetData()) setConfirmReset(false);
               }}
               className="flex-1 rounded-xl bg-red-500 py-2.5 text-sm font-bold text-white"
             >
-              Точно удалить
+              {isDemoMode ? 'Восстановить демо' : 'Точно удалить'}
             </button>
             <button
               onClick={() => setConfirmReset(false)}
