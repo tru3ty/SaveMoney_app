@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-slate-950 text-slate-900 antialiased;
+  font-family: var(--font-sans);
+}
+
+.app-shell {
+  @apply relative mx-auto flex h-full w-full max-w-[430px] flex-col overflow-hidden bg-slate-50;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06), 0 24px 80px rgb(0 0 0 / 0.5);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============ Тёмная тема ============ */
+
+.dark {
+  /* Инвертируем шкалу slate: светлые «оттенки» становятся тёмными поверхностями,
+     а тёмные — светлым текстом. Все slate-* утилиты подхватываются автоматически. */
+  --color-slate-50: #0a0e18;
+  --color-slate-100: #1b2540;
+  --color-slate-200: #2a3a5e;
+  --color-slate-300: #43527a;
+  --color-slate-400: #6f7d9c;
+  --color-slate-500: #8d9bb8;
+  --color-slate-600: #aab6cf;
+  --color-slate-700: #cdd6e9;
+  --color-slate-800: #dfe6f3;
+  --color-slate-900: #eff3fa;
+}
+
+/* bg-white не трогаем через переменную — text-white должен остаться белым.
+   Переопределяем сами утилиты (unlayered CSS бьёт слои Tailwind). */
+.dark .bg-white { background-color: #121a2b; }
+.dark .bg-white\/70 { background-color: rgb(18 26 43 / 0.65); }
+.dark .bg-white\/80 { background-color: rgb(18 26 43 / 0.8); }
+.dark .bg-white\/90 { background-color: rgb(18 26 43 / 0.85); }
+.dark .hover\:bg-white\/70:hover { background-color: #1b2540; }
+.dark .hover\:bg-white:hover { background-color: #1b2540; }
+
+/* Пастельные подложки → тонированные под тёмную тему */
+.dark .bg-amber-50 { background-color: rgb(245 158 11 / 0.12); }
+.dark .bg-indigo-50 { background-color: rgb(99 102 241 / 0.12); }
+.dark .bg-indigo-100 { background-color: rgb(99 102 241 / 0.16); }
+.dark .bg-indigo-100\/70 { background-color: rgb(99 102 241 / 0.2); }
+.dark .hover\:bg-indigo-100\/70:hover { background-color: rgb(99 102 241 / 0.22); }
+.dark .bg-red-50 { background-color: rgb(239 68 68 / 0.1); }
+.dark .bg-emerald-50 { background-color: rgb(16 185 129 / 0.12); }
+.dark .bg-sky-50 { background-color: rgb(14 165 233 / 0.12); }
+
+/* Тёмный текст на пастели → светлые оттенки */
+.dark .text-indigo-900 { color: #c7d2fe; }
+.dark .text-indigo-700 { color: #a5b4fc; }
+.dark .text-emerald-700 { color: #34d399; }
+.dark .text-emerald-600 { color: #34d399; }
+
+/* Активный чип фильтра: светлый фон → тёмный текст */
+.dark .bg-slate-900.text-white { color: #0a0e18; }
+
+/* Ring'и: приглушаем пастельные обводки */
+.dark .ring-indigo-100 { --tw-ring-color: rgb(99 102 241 / 0.25); }
+.dark .ring-indigo-300 { --tw-ring-color: rgb(129 140 248 / 0.4); }
+.dark .ring-emerald-200 { --tw-ring-color: rgb(16 185 129 / 0.35); }
+.dark .ring-red-100 { --tw-ring-color: rgb(239 68 68 / 0.25); }
+
+/* ============ Смена темы «разлитой краской» ============ */
+/* Новая тема проявляется сквозь растущую кляксу-маску из точки клика.
+   Растёт сама маска (mask-size/position интерполируются нативно), а не оверлей поверх. */
+
+html.theme-spill::view-transition-old(root) {
+  animation: none;
+}
+
+html.theme-spill::view-transition-new(root) {
+  -webkit-mask-image: var(--spill-mask);
+  mask-image: var(--spill-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: spill-grow 1100ms cubic-bezier(0.55, 0.05, 0.25, 1) both;
+}
+
+/* Брызги летят поверх и за пределами кляксы — без стандартного кроссфейда */
+html.theme-spill::view-transition-old(spill-drops),
+html.theme-spill::view-transition-new(spill-drops) {
+  animation: none;
+}
+
+@keyframes spill-grow {
+  from {
+    -webkit-mask-size: 0 0;
+    mask-size: 0 0;
+    -webkit-mask-position: var(--spill-x) var(--spill-y);
+    mask-position: var(--spill-x) var(--spill-y);
+  }
+  to {
+    -webkit-mask-size: var(--spill-size) var(--spill-size);
+    mask-size: var(--spill-size) var(--spill-size);
+    -webkit-mask-position: calc(var(--spill-x) - var(--spill-size) / 2) calc(var(--spill-y) - var(--spill-size) / 2);
+    mask-position: calc(var(--spill-x) - var(--spill-size) / 2) calc(var(--spill-y) - var(--spill-size) / 2);
+  }
+}

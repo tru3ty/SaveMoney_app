@@ -1,4 +1,4 @@
-"""Keep the machine-readable contract aligned with the coursework README."""
+"""Проверки согласованности OpenAPI и таблицы в README."""
 
 import json
 import re

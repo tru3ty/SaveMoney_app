@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+REPOSITORY_ROOT = ROOT.parents[1]
 
 
 @pytest.mark.parametrize('fail_on', ['', 'ruff', 'coverage', 'compileall'])
@@ -36,17 +37,20 @@ def test_check_script_stops_on_failed_tool(tmp_path, fail_on):
 
 
 def test_hook_forwards_failed_check_from_repository_root(tmp_path):
-    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    git_variables = subprocess.check_output(['git', 'rev-parse', '--local-env-vars'], text=True)
+    env = {name: value for name, value in os.environ.items() if name not in git_variables.split()}
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], env=env, check=True)
     (tmp_path / '.githooks').mkdir()
     (tmp_path / 'scripts').mkdir()
     hook = tmp_path / '.githooks/pre-commit'
-    shutil.copy(ROOT / '.githooks/pre-commit', hook)
+    shutil.copy(REPOSITORY_ROOT / '.githooks/pre-commit', hook)
     (tmp_path / 'scripts/check.sh').write_text(
         '#!/bin/sh\ntest -d .git || exit 99\nexit 7\n',
     )
     result = subprocess.run(
         ['sh', str(hook)],
         cwd=tmp_path / '.githooks',
+        env=env,
         capture_output=True,
     )
     assert result.returncode == 7
